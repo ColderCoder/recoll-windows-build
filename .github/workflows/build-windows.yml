@@ -44,6 +44,58 @@ jobs:
           modules: qtwebengine qtwebchannel qtpositioning
           cache: true
 
+      - name: Set up MSYS2 for Aspell
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            make
+            perl
+
+      - name: Export MSYS2 location
+        shell: pwsh
+        run: |
+          "MSYS2_LOCATION=${{ steps.msys2.outputs.msys2-location }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Set up conda-forge Poppler
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: poppler
+          environment-file: runtime/poppler-environment.yml
+          auto-activate-base: false
+          auto-update-conda: false
+          conda-remove-defaults: true
+
+      - name: Resolve Poppler environment
+        shell: pwsh
+        run: |
+          $condaPath = $null
+          if ($env:CONDA_PREFIX -and (Test-Path -LiteralPath $env:CONDA_PREFIX -PathType Container)) {
+            $condaPath = $env:CONDA_PREFIX
+          }
+          $condaCommand = Get-Command conda.exe -ErrorAction SilentlyContinue
+          if (-not $condaCommand -and $env:CONDA) {
+            foreach ($candidate in @($env:CONDA, (Join-Path $env:CONDA 'conda.exe'))) {
+              if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                $condaCommand = Get-Item -LiteralPath $candidate
+                break
+              }
+            }
+          }
+          if (-not $condaPath -and $condaCommand) {
+            $envList = (& $condaCommand.Source env list --json 2>$null | ConvertFrom-Json).envs
+            $condaPath = @($envList | Where-Object { (Split-Path -Leaf $_) -eq 'poppler' }) | Select-Object -First 1
+          }
+          if (-not $condaPath -or -not (Test-Path -LiteralPath $condaPath -PathType Container)) {
+            throw 'Could not locate the conda-forge Poppler environment'
+          }
+          "POPLER_ENV_PREFIX=$condaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Poppler environment: $condaPath"
+
       - name: Install pinned vcpkg
         shell: pwsh
         run: |
@@ -90,6 +142,24 @@ jobs:
       - name: Fetch Recoll source and apply Windows build patch
         shell: pwsh
         run: ./scripts/fetch-source.ps1
+
+      - name: Cache runtime downloads
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: build/runtime-downloads
+          key: runtime-${{ runner.os }}-${{ hashFiles('runtime/runtime-manifest.json', 'runtime/python-requirements.txt', 'runtime/poppler-environment.yml') }}
+
+      - name: Stage Python, Aspell and Poppler runtimes
+        shell: pwsh
+        run: ./scripts/stage-runtimes.ps1
+
+      - name: Save runtime download cache
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/runtime-downloads
+          key: runtime-${{ runner.os }}-${{ hashFiles('runtime/runtime-manifest.json', 'runtime/python-requirements.txt', 'runtime/poppler-environment.yml') }}
 
       - name: Build and package
         shell: pwsh

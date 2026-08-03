@@ -24,6 +24,13 @@ function Copy-RequiredFile {
     Copy-Item -LiteralPath $LiteralPath -Destination $Destination -Force
 }
 
+function Assert-RequiredFile {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+    if (-not (Test-Path -LiteralPath $LiteralPath -PathType Leaf)) {
+        throw "Required file is missing: $LiteralPath"
+    }
+}
+
 function Repair-XapianCMakeConfig {
     param(
         [Parameter(Mandatory = $true)][string]$VcpkgInstall
@@ -71,9 +78,39 @@ function Repair-XapianCMakeConfig {
     Write-Host "Using Xapian import library: $sharedPath"
 }
 
+function Write-SmokePdf {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $stream = "BT`n/F1 24 Tf`n72 720 Td`n(Recoll PDF smoke test) Tj`nET`n"
+    $objects = @(
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+        '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        "<< /Length $([Text.Encoding]::ASCII.GetByteCount($stream)) >>`nstream`n$stream" + 'endstream'
+    )
+
+    $pdf = "%PDF-1.4`n"
+    $offsets = @(0)
+    for ($index = 0; $index -lt $objects.Count; $index++) {
+        $offsets += [Text.Encoding]::ASCII.GetByteCount($pdf)
+        $objectNumber = $index + 1
+        $pdf += "$objectNumber 0 obj`n$($objects[$index])`nendobj`n"
+    }
+    $xrefOffset = [Text.Encoding]::ASCII.GetByteCount($pdf)
+    $pdf += "xref`n0 $($objects.Count + 1)`n0000000000 65535 f `n"
+    foreach ($offset in $offsets[1..$objects.Count]) {
+        $pdf += ("{0:0000000000} 00000 n `n" -f $offset)
+    }
+    $pdf += "trailer`n<< /Size $($objects.Count + 1) /Root 1 0 R >>`nstartxref`n$xrefOffset`n%%EOF`n"
+    [IO.File]::WriteAllText($LiteralPath, $pdf, [Text.Encoding]::ASCII)
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sourceRoot = if ($env:RECOLL_SOURCE_DIR) { $env:RECOLL_SOURCE_DIR } else { Join-Path $repoRoot 'build/recoll-source' }
 $buildRoot = Join-Path $repoRoot 'build'
+$runtimeRoot = Join-Path $buildRoot 'runtime'
+$runtimeManifest = Get-Content -LiteralPath (Join-Path $runtimeRoot 'RUNTIME-MANIFEST.json') -Raw | ConvertFrom-Json
 $cmakeBuild = Join-Path $buildRoot 'cmake'
 $packageRoot = Join-Path $repoRoot 'dist/recoll-windows-x64'
 $vcpkgInstallRoot = Join-Path $repoRoot 'vcpkg_installed'
@@ -85,6 +122,9 @@ $vcpkgToolchain = Join-Path $env:VCPKG_ROOT 'scripts/buildsystems/vcpkg.cmake'
 if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) { throw "Recoll source directory is missing: $sourceRoot" }
 if (-not (Test-Path -LiteralPath $qtRoot -PathType Container)) { throw "Qt root is missing: $qtRoot" }
 if (-not (Test-Path -LiteralPath $vcpkgInstall -PathType Container)) { throw "vcpkg install directory is missing: $vcpkgInstall" }
+if (-not (Test-Path -LiteralPath (Join-Path $runtimeRoot 'filters') -PathType Container)) {
+    throw "Runtime staging directory is missing: $runtimeRoot"
+}
 
 Repair-XapianCMakeConfig -VcpkgInstall $vcpkgInstall
 
@@ -143,6 +183,12 @@ Copy-Item -LiteralPath (Join-Path $sourceSrc 'doc/user/usermanual.html') -Destin
 Copy-Item -LiteralPath (Join-Path $sourceSrc 'doc/user/docbook-xsl.css') -Destination (Join-Path $docRoot 'docbook-xsl.css') -Force
 Copy-Item -LiteralPath (Join-Path $sourceSrc 'COPYING') -Destination (Join-Path $packageRoot 'COPYING.txt') -Force
 
+$runtimeFilters = Join-Path $runtimeRoot 'filters'
+Copy-Item -Path (Join-Path $runtimeFilters '*') -Destination (Join-Path $shareRoot 'filters') -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $runtimeRoot 'RUNTIME-MANIFEST.json') -Destination (Join-Path $packageRoot 'RUNTIME-MANIFEST.json') -Force
+Copy-Item -LiteralPath (Join-Path $runtimeRoot 'python-requirements.txt') -Destination (Join-Path $packageRoot 'python-requirements.txt') -Force
+Copy-Item -LiteralPath (Join-Path $runtimeRoot 'poppler-environment.yml') -Destination (Join-Path $packageRoot 'poppler-environment.yml') -Force
+
 $qmDirectory = Join-Path $cmakeBuild 'i18n'
 if (Test-Path -LiteralPath $qmDirectory -PathType Container) {
     Copy-Item -Path (Join-Path $qmDirectory '*') -Destination $translationsRoot -Recurse -Force
@@ -161,10 +207,79 @@ if (Test-Path -LiteralPath $vcpkgBin -PathType Container) {
 $windeployqt = Join-Path $qtRoot 'bin/windeployqt.exe'
 Invoke-Native -FilePath $windeployqt -ArgumentList @('--release', '--no-translations', (Join-Path $packageRoot 'recoll.exe'))
 
+$filterRoot = Join-Path $shareRoot 'filters'
+$pythonExe = Join-Path $filterRoot 'python/python.exe'
+$popplerBin = Join-Path $filterRoot 'poppler/Library/bin'
+$aspellExe = Join-Path $filterRoot 'aspell-installed/mingw32/bin/aspell.exe'
+Assert-RequiredFile -LiteralPath $pythonExe
+Assert-RequiredFile -LiteralPath (Join-Path $popplerBin 'pdftotext.exe')
+Assert-RequiredFile -LiteralPath $aspellExe
+$env:RECOLL_FILTERSDIR = $filterRoot
+$env:ASPELL_PROG = $aspellExe
+$env:PATH = "$packageRoot;$filterRoot;$(Join-Path $filterRoot 'python');$popplerBin;$(Split-Path -Parent $aspellExe);$env:PATH"
+
+Invoke-Native -FilePath $pythonExe -ArgumentList @(
+    '-c',
+    'import chm, epub, hwp5, lxml.etree, py7zr; print("Packaged Python filters OK")'
+)
+$popplerVersion = (& (Join-Path $popplerBin 'pdftotext.exe') '-v' 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $popplerVersion -notmatch 'Poppler') {
+    throw "Packaged Poppler failed its version smoke test: $popplerVersion"
+}
+$aspellVersion = (& $aspellExe '--version' 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $aspellVersion -notmatch 'Aspell') {
+    throw "Packaged Aspell failed its version smoke test: $aspellVersion"
+}
+
 $versionOutput = (& (Join-Path $packageRoot 'recoll.exe') '-v').Trim()
 if ($LASTEXITCODE -ne 0) { throw 'The built recoll.exe did not pass the version smoke test' }
 & (Join-Path $packageRoot 'recollindex.exe') '-h' | Out-Host
 if ($LASTEXITCODE -ne 0) { throw 'The built recollindex.exe did not pass the help smoke test' }
+
+$smokeRoot = Join-Path $buildRoot 'filter-smoke'
+if (Test-Path -LiteralPath $smokeRoot) {
+    $resolvedSmokeRoot = [IO.Path]::GetFullPath($smokeRoot)
+    $resolvedBuildRoot = [IO.Path]::GetFullPath($buildRoot)
+    if (-not $resolvedSmokeRoot.StartsWith($resolvedBuildRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove smoke-test data outside the build directory: $resolvedSmokeRoot"
+    }
+    Remove-Item -LiteralPath $smokeRoot -Recurse -Force
+}
+$smokeConfig = Join-Path $smokeRoot 'config'
+$smokeDb = Join-Path $smokeRoot 'db'
+New-Item -ItemType Directory -Force -Path $smokeConfig, $smokeDb | Out-Null
+$textPath = Join-Path $smokeRoot 'sample.txt'
+Set-Content -LiteralPath $textPath -Value 'Recoll text filter smoke test' -Encoding utf8
+$pdfPath = Join-Path $smokeRoot 'sample.pdf'
+Write-SmokePdf -LiteralPath $pdfPath
+$archivePath = Join-Path $smokeRoot 'sample.7z'
+Invoke-Native -FilePath $pythonExe -ArgumentList @(
+    '-c',
+    'import pathlib, py7zr, sys; archive = pathlib.Path(sys.argv[1]); source = pathlib.Path(sys.argv[2]); handle = py7zr.SevenZipFile(archive, "w"); handle.write(source, source.name); handle.close()',
+    $archivePath,
+    $textPath
+)
+Set-Content -LiteralPath (Join-Path $smokeConfig 'recoll.conf') -Value @(
+    "topdirs = $smokeRoot"
+    "dbdir = $smokeDb"
+    "filtersdir = $filterRoot"
+) -Encoding utf8
+$pdfText = (& (Join-Path $popplerBin 'pdftotext.exe') $pdfPath '-' 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $pdfText -notmatch 'Recoll PDF smoke test') {
+    throw "Packaged Poppler could not extract text from the smoke-test PDF: $pdfText"
+}
+Invoke-Native -FilePath (Join-Path $packageRoot 'recollindex.exe') -ArgumentList @(
+    '-c', $smokeConfig, '-i', '-f', '-Z', $textPath, $pdfPath, $archivePath
+)
+$queryOutput = (& (Join-Path $packageRoot 'recollq.exe') '-c' $smokeConfig '-d' 'Recoll PDF smoke test' 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $queryOutput -notmatch 'sample\.pdf') {
+    throw "Recoll did not return the indexed PDF filter result: $queryOutput"
+}
+$archiveQueryOutput = (& (Join-Path $packageRoot 'recollq.exe') '-c' $smokeConfig '-d' 'Recoll text filter smoke' 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $archiveQueryOutput -notmatch 'sample\.7z') {
+    throw "Recoll did not return the indexed 7z/Python filter result: $archiveQueryOutput"
+}
+Invoke-Native -FilePath (Join-Path $packageRoot 'recollindex.exe') -ArgumentList @('-c', $smokeConfig, '-S')
 
 $version = (Get-Content -LiteralPath (Join-Path $sourceRoot 'src/RECOLL-VERSION.txt') -Raw).Trim()
 if ($version -notmatch '^\d+\.\d+\.\d+') { throw "Unexpected Recoll version: $version" }
@@ -178,6 +293,9 @@ $metadata = @(
     "Qt version: $env:QT_VERSION"
     "vcpkg commit: $env:VCPKG_COMMIT"
     "Triplet: x64-windows"
+    "Python runtime: $($runtimeManifest.python.version)"
+    "Aspell runtime: $($runtimeManifest.aspell.version) with $($runtimeManifest.aspellEnglishDictionary.version) English dictionary"
+    "Poppler runtime: $($runtimeManifest.poppler.version) from $($runtimeManifest.poppler.channel)"
 )
 Set-Content -LiteralPath (Join-Path $packageRoot 'BUILD-METADATA.txt') -Value $metadata
 

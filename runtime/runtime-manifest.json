@@ -1,0 +1,42 @@
+{
+  "python": {
+    "version": "3.12.10",
+    "url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embeddable-amd64.zip",
+    "sha256": "156c7eea90d58cd7e91a23f28a0056616b13e9f4cf4901b7b99b837b7848c6da"
+  },
+  "pipBootstrap": {
+    "url": "https://bootstrap.pypa.io/get-pip.py",
+    "sha256": "25b5c39ade96bab5eabe6404ce83cab6da2deb5fe3c07d9881f43803edb6f9c8"
+  },
+  "aspell": {
+    "version": "0.60.7",
+    "url": "https://recoll.org/downloads/recoll-windows-gpl/aspell-0.60.7.tar.gz",
+    "sha256": "5ca8fc8cb0370cc6c9eb5b64c6d1bc5d57b3750dbf17887726c3407d833b70e4"
+  },
+  "aspellEnglishDictionary": {
+    "version": "2019.10.06-0",
+    "url": "https://www.recoll.org/downloads/expanded-aspell-dictionaries/aspell6-en-2019.10.06-0.zip",
+    "sha256": "6d6bee0100e8b43b58a42a1a5e484200398e1b2c469cffade714378abd7e199e"
+  },
+  "py7zr": {
+    "version": "0.22.0",
+    "url": "https://recoll.org/downloads/recoll-windows-gpl/py7zr-0.22.0.tar.gz",
+    "sha256": "c6c7aea5913535184003b73938490f9a4d8418598e533f9ca991d3b8e45a139e"
+  },
+  "pychm": {
+    "url": "https://recoll.org/downloads/recoll-windows-gpl/pychm-with-chmlib.tar.gz",
+    "sha256": "058e362176f11e39eeefc264d4aec49f21bd7b2f4f3d2a3b1da68ddc32408b1c"
+  },
+  "pyepub": {
+    "url": "https://recoll.org/downloads/recoll-windows-gpl/pyepub.tar.gz",
+    "sha256": "76ea17f3bb2dd017937a1e65107ac9c0ce5b5bb1cfc5fd51035a5ce4d6f8411d"
+  },
+  "pyhwp": {
+    "url": "https://recoll.org/downloads/recoll-windows-gpl/pyhwp-0.1b15-win.tgz",
+    "sha256": "6ecfc5caea7cb90e1e335e7fcf0e5b0969bd275feab37efd3260ac58cea02335"
+  },
+  "poppler": {
+    "version": "22.04.0",
+    "channel": "conda-forge"
+  }
+}
