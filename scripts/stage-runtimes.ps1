@@ -193,6 +193,13 @@ if ($popplerDlls.Count -eq 0) {
 foreach ($popplerDll in $popplerDlls) {
     Copy-Item -LiteralPath $popplerDll.FullName -Destination $popplerRuntimeBin -Force
 }
+# Newer conda-forge libdeflate packages install deflate.dll while the pinned
+# Poppler dependency graph can still contain a tiff.dll importing libdeflate.dll.
+$deflateDll = Join-Path $popplerRuntimeBin 'deflate.dll'
+$libDeflateDll = Join-Path $popplerRuntimeBin 'libdeflate.dll'
+if ((Test-Path -LiteralPath $deflateDll -PathType Leaf) -and -not (Test-Path -LiteralPath $libDeflateDll -PathType Leaf)) {
+    Copy-Item -LiteralPath $deflateDll -Destination $libDeflateDll -Force
+}
 $popplerVCRuntime = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
 foreach ($runtimeDll in $popplerVCRuntime) {
     Assert-RequiredFile -LiteralPath (Join-Path $popplerRuntimeBin $runtimeDll)
