@@ -284,7 +284,9 @@ $archiveQueryOutput = (& (Join-Path $packageRoot 'recollq.exe') '-c' $smokeConfi
 if ($LASTEXITCODE -ne 0 -or $archiveQueryOutput -notmatch 'sample\.7z') {
     throw "Recoll did not return the indexed 7z/Python filter result: $archiveQueryOutput"
 }
-Invoke-Native -FilePath (Join-Path $packageRoot 'recollindex.exe') -ArgumentList @('-c', $smokeConfig, '-S')
+# Recoll 1.44.1 no longer accepts the historical -S option. Keep a valid
+# post-index configuration check after the real filter/index/query smoke tests.
+Invoke-Native -FilePath (Join-Path $packageRoot 'recollindex.exe') -ArgumentList @('-c', $smokeConfig, '-E')
 
 $version = (Get-Content -LiteralPath (Join-Path $sourceRoot 'src/RECOLL-VERSION.txt') -Raw).Trim()
 if ($version -notmatch '^\d+\.\d+\.\d+') { throw "Unexpected Recoll version: $version" }
