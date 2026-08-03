@@ -23,6 +23,12 @@ cd "$source_dir"
 if ! grep -q '^#include "asc_ctype.hpp"$' common/file_util.cpp; then
     sed -i '/^#include "file_util.hpp"$/a #include "asc_ctype.hpp"' common/file_util.cpp
 fi
+# The unused recalc_size() template in Aspell 0.60.7 contains stale member
+# names. GCC 15 now diagnoses the dependent-name errors even when the method
+# is not instantiated, so keep its intended bucket-counting implementation.
+if grep -q 'this->e; ++i, ++this->_size' modules/speller/default/vector_hash-t.hpp; then
+    sed -i 's|    for (iterator i = begin(); i != this->e; ++i, ++this->_size);|    for (iterator i = begin(), e = end(); i != e; ++i) ++size_;|' modules/speller/default/vector_hash-t.hpp
+fi
 # The Windows runner exports Git for Windows' shell with a path containing a
 # space. Autoconf would otherwise bake `C:/Program Files/Git/.../sh.exe` into
 # the Makefiles, where MSYS2 cannot execute it as an unquoted recipe command.
