@@ -113,6 +113,8 @@ if (-not $pythonPth) {
     "python312.zip`r`n.`r`nLib/site-packages`r`nimport site`r`n",
     [Text.Encoding]::ASCII
 )
+$filterPathPth = Join-Path $sitePackages 'recoll-filters.pth'
+[IO.File]::WriteAllText($filterPathPth, "..\..\..`r`n", [Text.Encoding]::ASCII)
 
 $env:PIP_NO_CACHE_DIR = '1'
 Invoke-Native -FilePath $pythonExe -ArgumentList @(

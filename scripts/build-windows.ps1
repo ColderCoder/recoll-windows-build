@@ -222,6 +222,10 @@ Invoke-Native -FilePath $pythonExe -ArgumentList @(
     '-c',
     'import chm, epub, hwp5, lxml.etree, py7zr; print("Packaged Python filters OK")'
 )
+Invoke-Native -FilePath $pythonExe -ArgumentList @(
+    '-c',
+    'import archivextract, cmdtalk, conftree, rclconfig, rclexecm; print("Recoll filter support modules OK")'
+)
 $popplerVersion = (& (Join-Path $popplerBin 'pdftotext.exe') '-v' 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0 -or $popplerVersion -notmatch 'Poppler') {
     throw "Packaged Poppler failed its version smoke test: $popplerVersion"
