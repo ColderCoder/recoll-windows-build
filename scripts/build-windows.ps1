@@ -24,6 +24,54 @@ function Copy-RequiredFile {
     Copy-Item -LiteralPath $LiteralPath -Destination $Destination -Force
 }
 
+function Repair-XapianCMakeConfig {
+    param(
+        [Parameter(Mandatory = $true)][string]$VcpkgInstallRoot,
+        [Parameter(Mandatory = $true)][string]$VcpkgInstall
+    )
+
+    $shareRoot = Join-Path $VcpkgInstallRoot 'share'
+    $configFiles = @(
+        Get-ChildItem -LiteralPath $shareRoot -Recurse -Filter 'xapian-config.cmake' -File
+    )
+    if ($configFiles.Count -ne 1) {
+        throw "Expected exactly one Xapian CMake config below $shareRoot, found $($configFiles.Count)"
+    }
+
+    $configFile = $configFiles[0]
+    $originalText = Get-Content -LiteralPath $configFile.FullName -Raw
+    $configText = [regex]::Replace($originalText, '"/([A-Za-z])/', '"$1:/')
+    $sharedMatch = [regex]::Match(
+        $configText,
+        '(?im)^\s*SET\(XAPIAN_SHARED_LIBRARY\s+"([^"]+)"'
+    )
+    if (-not $sharedMatch.Success) {
+        throw "XAPIAN_SHARED_LIBRARY is missing from $($configFile.FullName)"
+    }
+
+    $sharedPath = $sharedMatch.Groups[1].Value
+    if (-not (Test-Path -LiteralPath $sharedPath -PathType Leaf)) {
+        $releaseLibRoot = Join-Path $VcpkgInstall 'lib'
+        $candidates = @(
+            Get-ChildItem -LiteralPath $releaseLibRoot -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '(?i)^(?:lib)?xapian.*\.lib$' }
+        )
+        if ($candidates.Count -ne 1) {
+            $candidateNames = if ($candidates.Count -gt 0) { $candidates.Name -join ', ' } else { '<none>' }
+            throw "Xapian shared import library is missing at $sharedPath; candidates: $candidateNames"
+        }
+
+        $replacementPath = $candidates[0].FullName -replace '\\', '/'
+        $configText = $configText.Replace($sharedPath, $replacementPath)
+        $sharedPath = $replacementPath
+    }
+
+    if ($configText -ne $originalText) {
+        Set-Content -LiteralPath $configFile.FullName -Value $configText -NoNewline
+    }
+    Write-Host "Using Xapian import library: $sharedPath"
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $sourceRoot = if ($env:RECOLL_SOURCE_DIR) { $env:RECOLL_SOURCE_DIR } else { Join-Path $repoRoot 'build/recoll-source' }
 $buildRoot = Join-Path $repoRoot 'build'
@@ -38,6 +86,8 @@ $vcpkgToolchain = Join-Path $env:VCPKG_ROOT 'scripts/buildsystems/vcpkg.cmake'
 if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) { throw "Recoll source directory is missing: $sourceRoot" }
 if (-not (Test-Path -LiteralPath $qtRoot -PathType Container)) { throw "Qt root is missing: $qtRoot" }
 if (-not (Test-Path -LiteralPath $vcpkgInstall -PathType Container)) { throw "vcpkg install directory is missing: $vcpkgInstall" }
+
+Repair-XapianCMakeConfig -VcpkgInstallRoot $vcpkgInstallRoot -VcpkgInstall $vcpkgInstall
 
 if (Test-Path -LiteralPath $cmakeBuild) { Remove-Item -LiteralPath $cmakeBuild -Recurse -Force }
 if (Test-Path -LiteralPath $packageRoot) { Remove-Item -LiteralPath $packageRoot -Recurse -Force }
