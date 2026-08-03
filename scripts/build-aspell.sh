@@ -18,6 +18,11 @@ source_dir=$(find "$build_root" -mindepth 1 -maxdepth 1 -type d -name 'aspell-0.
 test -n "$source_dir"
 
 cd "$source_dir"
+# The Windows runner exports Git for Windows' shell with a path containing a
+# space. Autoconf would otherwise bake `C:/Program Files/Git/.../sh.exe` into
+# the Makefiles, where MSYS2 cannot execute it as an unquoted recipe command.
+export SHELL=/usr/bin/sh
+export CONFIG_SHELL=/usr/bin/sh
 ./configure \
     --prefix="$prefix" \
     --enable-win32-relocatable \
@@ -25,8 +30,8 @@ cd "$source_dir"
     --enable-32-bit-hash-fun \
     --disable-nls \
     --disable-curses
-make -j2
-make install
+make -j2 SHELL=/usr/bin/sh
+make install SHELL=/usr/bin/sh
 
 # Aspell is built with MinGW while Recoll itself is built with MSVC. Keep the
 # MinGW runtime beside Aspell so the package stays self-contained and the DLLs
