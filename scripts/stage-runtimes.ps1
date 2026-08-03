@@ -269,7 +269,7 @@ Expand-Archive -LiteralPath $aspellDictionaryArchive -DestinationPath $aspellDic
 $aspellExe = Join-Path $aspellPrefix 'bin/aspell.exe'
 Assert-RequiredFile -LiteralPath $aspellExe
 Assert-RequiredFile -LiteralPath (Join-Path $aspellDictionaryRoot 'en.dat')
-$aspellDicts = (& $aspellExe '--lang=en' 'dicts' 2>&1 | Out-String)
+$aspellDicts = (& $aspellExe "--data-dir=$aspellDictionaryRoot" '--lang=en' 'dicts' 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0 -or $aspellDicts -notmatch '(?im)^\s*en\s*$') {
     throw "Aspell cannot see the packaged English dictionary: $aspellDicts"
 }
