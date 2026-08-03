@@ -92,7 +92,7 @@ jobs:
           if (-not $condaPath -or -not (Test-Path -LiteralPath $condaPath -PathType Container)) {
             throw 'Could not locate the conda-forge Poppler environment'
           }
-          "POPLER_ENV_PREFIX=$condaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "POPPLER_ENV_PREFIX=$condaPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Poppler environment: $condaPath"
 
       - name: Install pinned vcpkg

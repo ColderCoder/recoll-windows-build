@@ -168,9 +168,9 @@ Invoke-Native -FilePath $pythonExe -ArgumentList @(
     'import chm, epub, hwp5, lxml.etree, py7zr; print("Python filter runtime OK")'
 )
 
-$popplerPrefix = $env:POPLER_ENV_PREFIX
+$popplerPrefix = $env:POPPLER_ENV_PREFIX
 if (-not $popplerPrefix -or -not (Test-Path -LiteralPath $popplerPrefix -PathType Container)) {
-    throw 'POPLER_ENV_PREFIX is not set to the conda-forge Poppler environment'
+    throw 'POPPLER_ENV_PREFIX is not set to the conda-forge Poppler environment'
 }
 $popplerLibrary = Join-Path $popplerPrefix 'Library'
 $popplerBin = Join-Path $popplerLibrary 'bin'
@@ -215,36 +215,37 @@ $aspellBuildRoot = Join-Path $buildRoot 'aspell-build'
 Remove-GeneratedDirectory -LiteralPath $aspellBuildRoot -ParentDirectory $buildRoot
 New-Item -ItemType Directory -Force -Path $aspellBuildRoot | Out-Null
 $aspellPrefix = Join-Path $filtersRoot 'aspell-installed/mingw32'
-$bashCommand = Get-Command bash.exe -ErrorAction SilentlyContinue
-if (-not $bashCommand) {
-    $msysCandidates = @()
-    if ($env:MSYS2_LOCATION) {
-        $msysCandidates += Join-Path $env:MSYS2_LOCATION 'usr/bin/bash.exe'
-        $msysCandidates += Join-Path $env:MSYS2_LOCATION 'bin/bash.exe'
-    }
-    $msysCandidates += @('C:/msys64/usr/bin/bash.exe', 'C:/msys64/bin/bash.exe')
-    foreach ($candidate in $msysCandidates) {
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-            $bashCommand = Get-Item -LiteralPath $candidate
-            break
-        }
+$bashCommand = $null
+$msysCandidates = @()
+if ($env:MSYS2_LOCATION) {
+    $msysCandidates += Join-Path $env:MSYS2_LOCATION 'usr/bin/bash.exe'
+    $msysCandidates += Join-Path $env:MSYS2_LOCATION 'bin/bash.exe'
+}
+$msysCandidates += @('C:/msys64/usr/bin/bash.exe', 'C:/msys64/bin/bash.exe')
+foreach ($candidate in $msysCandidates) {
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+        $bashCommand = Get-Item -LiteralPath $candidate
+        break
     }
 }
 if (-not $bashCommand) {
     throw 'MSYS2 bash.exe was not found; the MSYS2 setup step must run before stage-runtimes.ps1'
 }
-$cygpathCommand = Get-Command cygpath.exe -ErrorAction SilentlyContinue
-if (-not $cygpathCommand) {
-    $cygpathCandidates = @()
-    if ($env:MSYS2_LOCATION) {
-        $cygpathCandidates += Join-Path $env:MSYS2_LOCATION 'usr/bin/cygpath.exe'
-    }
-    $cygpathCandidates += Join-Path (Split-Path (Split-Path $bashCommand.Source -Parent) -Parent) 'usr/bin/cygpath.exe'
-    foreach ($cygpathCandidate in $cygpathCandidates) {
-        if (Test-Path -LiteralPath $cygpathCandidate -PathType Leaf) {
-            $cygpathCommand = Get-Item -LiteralPath $cygpathCandidate
-            break
-        }
+$cygpathCommand = $null
+$cygpathCandidates = @(
+    (Join-Path (Split-Path $bashCommand.Source -Parent) 'cygpath.exe'),
+    'C:/msys64/usr/bin/cygpath.exe'
+)
+if ($env:MSYS2_LOCATION) {
+    $cygpathCandidates = @(
+        (Join-Path $env:MSYS2_LOCATION 'usr/bin/cygpath.exe'),
+        (Join-Path $env:MSYS2_LOCATION 'bin/cygpath.exe')
+    ) + $cygpathCandidates
+}
+foreach ($cygpathCandidate in $cygpathCandidates) {
+    if (Test-Path -LiteralPath $cygpathCandidate -PathType Leaf) {
+        $cygpathCommand = Get-Item -LiteralPath $cygpathCandidate
+        break
     }
 }
 if (-not $cygpathCommand) {
