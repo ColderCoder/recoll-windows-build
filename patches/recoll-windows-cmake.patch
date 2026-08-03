@@ -25,7 +25,7 @@ index 1b7522a..74fe1eb 100644
  set(recollindex_SOURCES
      index/checkindexed.cpp
      index/checkindexed.h
-@@ -378,6 +394,12 @@ set(recollindex_SOURCES
+@@ -378,12 +394,21 @@ set(recollindex_SOURCES
      index/webqueue.cpp
      index/webqueue.h
      )
@@ -38,6 +38,15 @@ index 1b7522a..74fe1eb 100644
  
  set(recollq_SOURCE
      query/recollqmain.cpp
+     query/recollq.cpp
+     query/recollq.h)
+ 
++if (WIN32)
++    list(APPEND recollq_SOURCE windows/getopt.cc)
++endif()
+ 
+ set(example_config_files
+     sampleconf/fields
 @@ -546,6 +568,10 @@ set(COMMON_INCLUDES_DIRS
      xaposix
  )
