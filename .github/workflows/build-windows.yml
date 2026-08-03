@@ -1,0 +1,96 @@
+name: Build Recoll for Windows
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      recoll_ref:
+        description: Recoll branch, tag or commit to build
+        required: false
+        default: recoll-v1.44.1
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  RECOLL_REPOSITORY: https://framagit.org/medoc92/recoll.git
+  RECOLL_REF: ${{ inputs.recoll_ref || 'recoll-v1.44.1' }}
+  QT_VERSION: 6.8.2
+  VCPKG_COMMIT: 39344dff01c5a5a0134caf2624cdd492f05d30ea
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Check out build wrapper
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4.3.1
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: win64_msvc2022_64
+          modules: qtwebengine qttools
+          cache: true
+
+      - name: Install pinned vcpkg
+        shell: pwsh
+        run: |
+          $vcpkgRoot = Join-Path $env:RUNNER_TEMP "vcpkg-$env:VCPKG_COMMIT"
+          if (-not (Test-Path -LiteralPath (Join-Path $vcpkgRoot 'vcpkg.exe') -PathType Leaf)) {
+            if (Test-Path -LiteralPath $vcpkgRoot) {
+              Remove-Item -LiteralPath $vcpkgRoot -Recurse -Force
+            }
+            git clone --filter=blob:none https://github.com/microsoft/vcpkg.git $vcpkgRoot
+            git -C $vcpkgRoot checkout --detach $env:VCPKG_COMMIT
+            & (Join-Path $vcpkgRoot 'bootstrap-vcpkg.bat') -disableMetrics
+            if ($LASTEXITCODE -ne 0) { throw "vcpkg bootstrap failed with exit code $LASTEXITCODE" }
+          }
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Cache vcpkg downloads and installed packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/vcpkg-${{ env.VCPKG_COMMIT }}/downloads
+            ${{ github.workspace }}/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Install native dependencies
+        shell: pwsh
+        run: |
+          & (Join-Path $env:VCPKG_ROOT 'vcpkg.exe') install `
+            --triplet x64-windows `
+            --x-manifest-root="$env:GITHUB_WORKSPACE" `
+            --x-install-root="$env:GITHUB_WORKSPACE/vcpkg_installed" `
+            --clean-after-build
+          if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed with exit code $LASTEXITCODE" }
+
+      - name: Fetch Recoll source and apply Windows build patch
+        shell: pwsh
+        run: ./scripts/fetch-source.ps1
+
+      - name: Build and package
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: recoll-windows-x64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 30
