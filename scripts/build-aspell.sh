@@ -18,6 +18,11 @@ source_dir=$(find "$build_root" -mindepth 1 -maxdepth 1 -type d -name 'aspell-0.
 test -n "$source_dir"
 
 cd "$source_dir"
+# Aspell 0.60.7 uses asc_isalpha() in file_util.cpp but omits the matching
+# header. Current MinGW compilers do not expose that declaration indirectly.
+if ! grep -q '^#include "asc_ctype.hpp"$' common/file_util.cpp; then
+    sed -i '/^#include "file_util.hpp"$/a #include "asc_ctype.hpp"' common/file_util.cpp
+fi
 # The Windows runner exports Git for Windows' shell with a path containing a
 # space. Autoconf would otherwise bake `C:/Program Files/Git/.../sh.exe` into
 # the Makefiles, where MSYS2 cannot execute it as an unquoted recipe command.
