@@ -159,7 +159,7 @@ if (Test-Path -LiteralPath $vcpkgBin -PathType Container) {
 }
 
 $windeployqt = Join-Path $qtRoot 'bin/windeployqt.exe'
-Invoke-Native -FilePath $windeployqt -ArgumentList @('--release', '--webengine', '--no-translations', (Join-Path $packageRoot 'recoll.exe'))
+Invoke-Native -FilePath $windeployqt -ArgumentList @('--release', '--no-translations', (Join-Path $packageRoot 'recoll.exe'))
 
 $versionOutput = (& (Join-Path $packageRoot 'recoll.exe') '-v').Trim()
 if ($LASTEXITCODE -ne 0) { throw 'The built recoll.exe did not pass the version smoke test' }
