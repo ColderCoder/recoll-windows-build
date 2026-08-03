@@ -2,7 +2,7 @@ diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
 index 1b7522a..74fe1eb 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -365,6 +365,22 @@ set(librecoll_SOURCES
+@@ -365,6 +365,23 @@ set(librecoll_SOURCES
      xaposix/safeunistd.h
      )
  
@@ -19,20 +19,20 @@ index 1b7522a..74fe1eb 100644
 +        windows/wincodepages.cpp
 +        windows/strptime.cpp
 +        utils/powerstatus.cpp
++        windows/getopt.cc
 +    )
 +endif()
 +
  set(recollindex_SOURCES
      index/checkindexed.cpp
      index/checkindexed.h
-@@ -378,12 +394,21 @@ set(recollindex_SOURCES
+@@ -378,12 +395,17 @@ set(recollindex_SOURCES
      index/webqueue.cpp
      index/webqueue.h
      )
 +if (WIN32)
 +    list(APPEND recollindex_SOURCES
 +        index/rclmonrcv_win32.cpp
-+        windows/getopt.cc
 +    )
 +endif()
  
@@ -41,9 +41,6 @@ index 1b7522a..74fe1eb 100644
      query/recollq.cpp
      query/recollq.h)
  
-+if (WIN32)
-+    list(APPEND recollq_SOURCE windows/getopt.cc)
-+endif()
  
  set(example_config_files
      sampleconf/fields
