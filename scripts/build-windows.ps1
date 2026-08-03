@@ -215,6 +215,7 @@ Assert-RequiredFile -LiteralPath $pythonExe
 Assert-RequiredFile -LiteralPath (Join-Path $popplerBin 'pdftotext.exe')
 Assert-RequiredFile -LiteralPath $aspellExe
 $env:RECOLL_FILTERSDIR = $filterRoot
+$env:RECOLL_DATADIR = $shareRoot
 $env:ASPELL_PROG = $aspellExe
 $env:PATH = "$packageRoot;$filterRoot;$(Join-Path $filterRoot 'python');$popplerBin;$(Split-Path -Parent $aspellExe);$env:PATH"
 
