@@ -233,7 +233,7 @@ if (-not $bashCommand) {
 }
 $cygpathCommand = $null
 $cygpathCandidates = @(
-    (Join-Path (Split-Path $bashCommand.Source -Parent) 'cygpath.exe'),
+    (Join-Path (Split-Path $bashCommand.FullName -Parent) 'cygpath.exe'),
     'C:/msys64/usr/bin/cygpath.exe'
 )
 if ($env:MSYS2_LOCATION) {
@@ -252,13 +252,13 @@ if (-not $cygpathCommand) {
     throw 'MSYS2 cygpath.exe was not found'
 }
 $aspellScript = Join-Path $repoRoot 'scripts/build-aspell.sh'
-$aspellScriptUnix = (& $cygpathCommand.Source -u $aspellScript).Trim()
+$aspellScriptUnix = (& $cygpathCommand.FullName -u $aspellScript).Trim()
 $env:RECOLL_ASPELL_SOURCE_TARBALL = $aspellArchive
 $env:RECOLL_ASPELL_BUILD_ROOT = $aspellBuildRoot
 $env:RECOLL_ASPELL_PREFIX = $aspellPrefix
 $env:MSYSTEM = 'MINGW64'
 $env:MSYS2_ARG_CONV_EXCL = '*'
-Invoke-Native -FilePath $bashCommand.Source -ArgumentList @(
+Invoke-Native -FilePath $bashCommand.FullName -ArgumentList @(
     '--noprofile', '--norc', '-lc',
     "export MSYSTEM=MINGW64; export PATH=/mingw64/bin:/usr/bin:`$PATH; bash '$aspellScriptUnix'"
 )
