@@ -141,3 +141,16 @@ index 558b7a0..b91a7a9 100644
  set_target_properties(recoll PROPERTIES
      RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
      INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/recoll"
+
+diff --git a/src/rcldb/rclabsfromtext.cpp b/src/rcldb/rclabsfromtext.cpp
+--- a/src/rcldb/rclabsfromtext.cpp
++++ b/src/rcldb/rclabsfromtext.cpp
+@@ -467,7 +467,7 @@ int Query::Native::abstractFromText(
+               }
+               );
+     // Apply requested truncation
+-    if (maxtotaloccs > 0 and maxtotaloccs < result.size()) {
++    if (maxtotaloccs > 0 && maxtotaloccs < result.size()) {
+         result.erase(result.begin() + maxtotaloccs, result.end());
+     }
+     // Possibly sort by position
