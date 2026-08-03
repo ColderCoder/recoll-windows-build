@@ -41,7 +41,7 @@ jobs:
         with:
           version: ${{ env.QT_VERSION }}
           arch: win64_msvc2022_64
-          modules: qtwebengine qttools
+          modules: qtwebengine
           cache: true
 
       - name: Install pinned vcpkg
