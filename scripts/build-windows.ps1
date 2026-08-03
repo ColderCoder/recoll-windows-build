@@ -26,11 +26,10 @@ function Copy-RequiredFile {
 
 function Repair-XapianCMakeConfig {
     param(
-        [Parameter(Mandatory = $true)][string]$VcpkgInstallRoot,
         [Parameter(Mandatory = $true)][string]$VcpkgInstall
     )
 
-    $shareRoot = Join-Path $VcpkgInstallRoot 'share'
+    $shareRoot = Join-Path $VcpkgInstall 'share'
     $configFiles = @(
         Get-ChildItem -LiteralPath $shareRoot -Recurse -Filter 'xapian-config.cmake' -File
     )
@@ -87,7 +86,7 @@ if (-not (Test-Path -LiteralPath $sourceRoot -PathType Container)) { throw "Reco
 if (-not (Test-Path -LiteralPath $qtRoot -PathType Container)) { throw "Qt root is missing: $qtRoot" }
 if (-not (Test-Path -LiteralPath $vcpkgInstall -PathType Container)) { throw "vcpkg install directory is missing: $vcpkgInstall" }
 
-Repair-XapianCMakeConfig -VcpkgInstallRoot $vcpkgInstallRoot -VcpkgInstall $vcpkgInstall
+Repair-XapianCMakeConfig -VcpkgInstall $vcpkgInstall
 
 if (Test-Path -LiteralPath $cmakeBuild) { Remove-Item -LiteralPath $cmakeBuild -Recurse -Force }
 if (Test-Path -LiteralPath $packageRoot) { Remove-Item -LiteralPath $packageRoot -Recurse -Force }
