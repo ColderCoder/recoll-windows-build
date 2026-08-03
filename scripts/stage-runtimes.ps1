@@ -181,10 +181,22 @@ foreach ($tool in @('pdfdetach.exe', 'pdftotext.exe', 'pdfinfo.exe', 'pdftoppm.e
     Copy-Item -LiteralPath (Join-Path $popplerBin $tool) -Destination $popplerRuntimeBin -Force
 }
 $popplerDlls = @(Get-ChildItem -LiteralPath $popplerBin -Filter '*.dll' -File)
+$popplerDlls += @(Get-ChildItem -LiteralPath $popplerPrefix -Filter '*.dll' -File -ErrorAction SilentlyContinue)
+$popplerLibraryLib = Join-Path $popplerLibrary 'lib'
+if (Test-Path -LiteralPath $popplerLibraryLib -PathType Container) {
+    $popplerDlls += @(Get-ChildItem -LiteralPath $popplerLibraryLib -Filter '*.dll' -File)
+}
+$popplerDlls = @($popplerDlls | Sort-Object -Property FullName -Unique)
 if ($popplerDlls.Count -eq 0) {
     throw "The conda-forge Poppler environment has no DLLs in $popplerBin"
 }
-Copy-Item -LiteralPath $popplerDlls.FullName -Destination $popplerRuntimeBin -Force
+foreach ($popplerDll in $popplerDlls) {
+    Copy-Item -LiteralPath $popplerDll.FullName -Destination $popplerRuntimeBin -Force
+}
+$popplerVCRuntime = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+foreach ($runtimeDll in $popplerVCRuntime) {
+    Assert-RequiredFile -LiteralPath (Join-Path $popplerRuntimeBin $runtimeDll)
+}
 $popplerShare = Join-Path $popplerLibrary 'share'
 if (-not (Test-Path -LiteralPath $popplerShare -PathType Container)) {
     throw "The conda-forge Poppler environment has no share directory: $popplerShare"
